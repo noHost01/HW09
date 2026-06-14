@@ -1,5 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
+// BAChatInput.cpp
 
 #include "UI/BAChatInput.h"
 
@@ -10,9 +9,14 @@ void UBAChatInput::NativeConstruct()
 {
 	Super::NativeConstruct();
 
-	if (EditableTextBox_ChatInput->OnTextCommitted.IsAlreadyBound(this, &ThisClass::OnChatInputTextCommitted) == false)
+	if (IsValid(EditableTextBox_ChatInput) == true)
 	{
-		EditableTextBox_ChatInput->OnTextCommitted.AddDynamic(this, &ThisClass::OnChatInputTextCommitted);
+		if (EditableTextBox_ChatInput->OnTextCommitted.IsAlreadyBound(this, &ThisClass::OnChatInputTextCommitted) == false)
+		{
+			EditableTextBox_ChatInput->OnTextCommitted.AddDynamic(this, &ThisClass::OnChatInputTextCommitted);
+		}
+
+		EditableTextBox_ChatInput->SetKeyboardFocus();
 	}
 }
 
@@ -20,9 +24,12 @@ void UBAChatInput::NativeDestruct()
 {
 	Super::NativeDestruct();
 
-	if (EditableTextBox_ChatInput->OnTextCommitted.IsAlreadyBound(this, &ThisClass::OnChatInputTextCommitted) == true)
+	if (IsValid(EditableTextBox_ChatInput) == true)
 	{
-		EditableTextBox_ChatInput->OnTextCommitted.RemoveDynamic(this, &ThisClass::OnChatInputTextCommitted);
+		if (EditableTextBox_ChatInput->OnTextCommitted.IsAlreadyBound(this, &ThisClass::OnChatInputTextCommitted) == true)
+		{
+			EditableTextBox_ChatInput->OnTextCommitted.RemoveDynamic(this, &ThisClass::OnChatInputTextCommitted);
+		}
 	}
 }
 
@@ -33,12 +40,16 @@ void UBAChatInput::OnChatInputTextCommitted(const FText& Text, ETextCommit::Type
 		APlayerController* OwningPlayerController = GetOwningPlayer();
 		if (IsValid(OwningPlayerController) == true)
 		{
-			ABAPlayerController* OwningCXPlayerController = Cast<ABAPlayerController>(OwningPlayerController);
-			if (IsValid(OwningCXPlayerController) == true)
+			ABAPlayerController* OwningBAPlayerController = Cast<ABAPlayerController>(OwningPlayerController);
+			if (IsValid(OwningBAPlayerController) == true)
 			{
-				OwningCXPlayerController->SetChatMessageString(Text.ToString());
+				OwningBAPlayerController->SetChatMessageString(Text.ToString());
 
-				EditableTextBox_ChatInput->SetText(FText());
+				if (IsValid(EditableTextBox_ChatInput) == true)
+				{
+					EditableTextBox_ChatInput->SetText(FText());
+					EditableTextBox_ChatInput->SetKeyboardFocus();
+				}
 			}
 		}
 	}

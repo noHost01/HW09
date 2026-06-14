@@ -1,17 +1,31 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
+// BAPlayerController.cpp
 
 #include "Player/BAPlayerController.h"
 
 #include "UI/BAChatInput.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "HW09.h"
+#include "EngineUtils.h"
+#include "Kismet/GameplayStatics.h"
+#include "Game/BAGameMode.h"
+#include "BAPlayerState.h"
+#include "Net/UnrealNetwork.h"
+
+ABAPlayerController::ABAPlayerController()
+{
+	bReplicates = true;
+}
 
 void ABAPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
-	FInputModeUIOnly InputModeUIOnly;
-	SetInputMode(InputModeUIOnly);
+	if (IsLocalController() == false)
+	{
+		return;
+	}
+
+	bShowMouseCursor = true;
 
 	if (IsValid(ChatInputWidgetClass) == true)
 	{
@@ -19,6 +33,30 @@ void ABAPlayerController::BeginPlay()
 		if (IsValid(ChatInputWidgetInstance) == true)
 		{
 			ChatInputWidgetInstance->AddToViewport();
+
+			FInputModeUIOnly InputModeUIOnly;
+			InputModeUIOnly.SetWidgetToFocus(ChatInputWidgetInstance->TakeWidget());
+			SetInputMode(InputModeUIOnly);
+
+			ChatInputWidgetInstance->SetKeyboardFocus();
+		}
+	}
+
+	if (IsValid(TimerWidgetClass) == true)
+	{
+		TimerWidgetInstance = CreateWidget<UUserWidget>(this, TimerWidgetClass);
+		if (IsValid(TimerWidgetInstance) == true)
+		{
+			TimerWidgetInstance->AddToViewport();
+		}
+	}
+
+	if (IsValid(NotificationTextWidgetClass) == true)
+	{
+		NotificationTextWidgetInstance = CreateWidget<UUserWidget>(this, NotificationTextWidgetClass);
+		if (IsValid(NotificationTextWidgetInstance) == true)
+		{
+			NotificationTextWidgetInstance->AddToViewport();
 		}
 	}
 }
@@ -27,10 +65,44 @@ void ABAPlayerController::SetChatMessageString(const FString& InChatMessageStrin
 {
 	ChatMessageString = InChatMessageString;
 
-	PrintChatMessageString(ChatMessageString);
+	if (IsLocalController() == true)
+	{
+		ABAPlayerState* BAPS = GetPlayerState<ABAPlayerState>();
+		if (IsValid(BAPS) == true)
+		{
+			FString CombinedMessageString = BAPS->GetPlayerInfoString() + TEXT(": ") + InChatMessageString;
+
+			ServerRPCPrintChatMessageString(CombinedMessageString);
+		}
+	}
 }
 
 void ABAPlayerController::PrintChatMessageString(const FString& InChatMessageString)
 {
-	UKismetSystemLibrary::PrintString(this, ChatMessageString, true, true, FLinearColor::Red, 5.0f);
+	HW09FunctionLibrary::MyPrintString(this, InChatMessageString, 10.f);
+}
+
+void ABAPlayerController::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ThisClass, NotificationText);
+}
+
+void ABAPlayerController::ServerRPCPrintChatMessageString_Implementation(const FString& InChatMessageString)
+{
+	AGameModeBase* GM = UGameplayStatics::GetGameMode(this);
+	if (IsValid(GM) == true)
+	{
+		ABAGameMode* BAGM = Cast<ABAGameMode>(GM);
+		if (IsValid(BAGM) == true)
+		{
+			BAGM->PrintChatMessageString(this, InChatMessageString);
+		}
+	}
+}
+
+void ABAPlayerController::ClientRPCPrintChatMessageString_Implementation(const FString& InChatMessageString)
+{
+	PrintChatMessageString(InChatMessageString);
 }
